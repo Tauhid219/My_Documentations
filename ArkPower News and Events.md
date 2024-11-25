@@ -395,3 +395,199 @@ In the Blade template, check if `$totalPosts` is greater than 12 before renderin
 - **`@if ($totalPosts > 12)`**: Checks if the total posts are more than 12, and only then displays the pagination controls.
 
 This way, the pagination controls will remain hidden when the total posts are 12 or fewer.
+
+Question: If there should be more categories, what can I do? 
+
+Answer: 
+
+To handle dynamic categories and filter data accordingly, you can refactor your code to retrieve categories dynamically from the database and allow filtering by any of them. Here's how you can achieve this:
+
+---
+
+### **Step 1: Update Your Component**
+
+Modify your `NewsAndEvents` component to dynamically fetch categories and their posts.
+
+#### Updated `NewsAndEvents.php`
+```php
+<?php
+
+namespace App\Livewire;
+
+use Livewire\Component;
+use Livewire\WithPagination;
+use App\Models\Post;
+use App\Models\BlogCategory;
+
+class NewsAndEvents extends Component
+{
+    use WithPagination;
+
+    public $filter = 'all';
+    public $categories;
+    public $totalPosts;
+
+    public function mount()
+    {
+        // Fetch all categories dynamically
+        $this->categories = BlogCategory::all();
+    }
+
+    public function setFilter($filter)
+    {
+        $this->filter = $filter;
+        $this->resetPage(); // Reset to the first page when changing filters
+    }
+
+    public function getPostsProperty()
+    {
+        // Build query based on the selected filter
+        $query = Post::query();
+
+        if ($this->filter !== 'all') {
+            $query->whereHas('category', function ($q) {
+                $q->where('slug', $this->filter); // Filter by category slug
+            });
+        }
+
+        $this->totalPosts = $query->count(); // Count total posts
+        return $query->paginate(12); // Paginate with 12 items per page
+    }
+
+    public function render()
+    {
+        return view('livewire.news-and-events', [
+            'posts' => $this->posts,
+        ]);
+    }
+}
+```
+
+---
+
+### **Step 2: Update the Blade Template**
+
+Dynamically generate filter buttons based on the categories fetched.
+
+#### Updated `news-and-events.blade.php`
+```html
+<div class="">
+    <div class="min-h-screen w-full max-w-screen-xl mx-auto flex items-start justify-center p-5">
+        <div>
+            <div class="md:mt-24 mt-14">
+                <h1 class="text-primary text-center md:text-5xl text-3xl uppercase">
+                    News &amp; Events
+                </h1>
+            </div>
+            <div class="flex justify-center my-5">
+                <!-- 'All' Button -->
+                <button wire:click="setFilter('all')"
+                    class="px-4 py-2 mx-2 {{ $filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200' }}">
+                    All
+                </button>
+
+                <!-- Dynamically Generated Category Buttons -->
+                @foreach ($categories as $category)
+                    <button wire:click="setFilter('{{ $category->slug }}')"
+                        class="px-4 py-2 mx-2 {{ $filter === $category->slug ? 'bg-blue-600 text-white' : 'bg-gray-200' }}">
+                        {{ $category->name }}
+                    </button>
+                @endforeach
+            </div>
+
+            @if ($posts->isNotEmpty())
+                <div class="grid lg:grid-cols-4 md:grid-cols-2 gap-5 my-10">
+                    @foreach ($posts as $post)
+                        <div class="border p-2">
+                            <div class="relative h-44 overflow-hidden">
+                                <img src="{{ asset('storage/' . $post->featured_image) }}" alt="{{ $post->title }}"
+                                    class="w-full h-full object-cover transition-transform duration-300 hover:scale-110" />
+                            </div>
+                            <div class="flex justify-between items-center my-2">
+                                <p class="font-bold uppercase">{{ $post->category->name }}</p>
+                                <p>{{ $post->created_at->format('Y-m-d') }}</p>
+                            </div>
+                            <a class="hover:underline text-2xl text-gray-700 font-bold"
+                                href="{{ route('newsdetails', $post->id) }}">
+                                {{ $post->title }}
+                            </a>
+                            <div class="mt-2">
+                                {!! \Illuminate\Support\Str::limit($post->content, 100) !!}
+                                <a class="text-blue-700 hover:underline"
+                                    href="{{ route('newsdetails', $post->id) }}">Read
+                                    Details</a>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                <!-- Custom pagination design -->
+                @if ($totalPosts > 12)
+                    <div class="flex justify-center items-center space-x-2 mt-6 mb-16">
+                        <!-- Previous Button -->
+                        <button class="px-4 py-2 bg-gray-300 rounded" wire:click="previousPage"
+                            @if ($posts->onFirstPage()) disabled @endif>
+                            Previous
+                        </button>
+
+                        <!-- Page Numbers -->
+                        @for ($page = 1; $page <= $posts->lastPage(); $page++)
+                            <button
+                                class="px-4 py-2 rounded {{ $posts->currentPage() === $page ? 'bg-blue-600 text-white' : 'bg-gray-200' }}"
+                                wire:click="gotoPage({{ $page }})">
+                                {{ $page }}
+                            </button>
+                        @endfor
+
+                        <!-- Next Button -->
+                        <button class="px-4 py-2 bg-blue-500 text-white rounded" wire:click="nextPage"
+                            @if (!$posts->hasMorePages()) disabled @endif>
+                            Next
+                        </button>
+                    </div>
+                @endif
+            @else
+                <div class="col-span-full text-center text-gray-700 font-semibold">
+                    <p>No news available at the moment.</p>
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
+```
+
+---
+
+### **Step 3: Ensure Database Schema**
+
+Your `blog_categories` table should include fields like `name` (display name) and `slug` (URL-friendly identifier). For example:
+
+#### Example Migration
+```php
+Schema::create('blog_categories', function (Blueprint $table) {
+    $table->id();
+    $table->string('name'); // Display name
+    $table->string('slug')->unique(); // URL-friendly identifier
+    $table->timestamps();
+});
+```
+
+### **Step 4: Ensure Relationships**
+
+Ensure your `Post` model is related to `BlogCategory`:
+
+#### In `Post` Model
+```php
+public function category()
+{
+    return $this->belongsTo(BlogCategory::class);
+}
+```
+
+---
+
+### **Outcome**
+
+1. The "All" button shows all posts.
+2. The filter buttons are generated dynamically based on the categories in the database.
+3. Pagination appears only if there are more than 12 posts.
+4. Posts are filtered based on the selected category.
