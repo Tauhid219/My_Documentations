@@ -248,3 +248,209 @@ If you encounter issues with files not being accessible:
    ``` 
 
 With this setup, your application will store and serve uploaded files securely and efficiently!
+
+
+
+
+
+
+
+
+
+
+Here are basic implementations of the Blade views for managing courses in your Laravel LMS:
+
+---
+
+### **1. `resources/views/courses/index.blade.php`**
+Displays a paginated list of courses.
+
+```html
+@extends('layouts.app')
+
+@section('content')
+<div class="container">
+    <h1>Courses</h1>
+    <a href="{{ route('courses.create') }}" class="btn btn-primary mb-3">Create New Course</a>
+
+    @if($courses->count())
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Title</th>
+                    <th>Instructor</th>
+                    <th>Type</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($courses as $course)
+                    <tr>
+                        <td>{{ $loop->iteration }}</td>
+                        <td>{{ $course->title }}</td>
+                        <td>{{ $course->instructor->name }}</td>
+                        <td>{{ $course->is_free ? 'Free' : 'Paid' }}</td>
+                        <td>
+                            <a href="{{ route('courses.show', $course) }}" class="btn btn-info btn-sm">View</a>
+                            <a href="{{ route('courses.edit', $course) }}" class="btn btn-warning btn-sm">Edit</a>
+                            <form action="{{ route('courses.destroy', $course) }}" method="POST" class="d-inline">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure?')">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        {{ $courses->links() }}
+    @else
+        <p>No courses found.</p>
+    @endif
+</div>
+@endsection
+```
+
+---
+
+### **2. `resources/views/courses/create.blade.php`**
+Form to create a new course.
+
+```html
+@extends('layouts.app')
+
+@section('content')
+<div class="container">
+    <h1>Create New Course</h1>
+
+    <form action="{{ route('courses.store') }}" method="POST" enctype="multipart/form-data">
+        @csrf
+
+        <div class="mb-3">
+            <label for="title" class="form-label">Course Title</label>
+            <input type="text" name="title" id="title" class="form-control" value="{{ old('title') }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea name="description" id="description" class="form-control">{{ old('description') }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label for="thumbnail" class="form-label">Thumbnail</label>
+            <input type="file" name="thumbnail" id="thumbnail" class="form-control">
+        </div>
+
+        <div class="mb-3">
+            <label for="is_free" class="form-label">Course Type</label>
+            <select name="is_free" id="is_free" class="form-control" required>
+                <option value="1" {{ old('is_free') == 1 ? 'selected' : '' }}>Free</option>
+                <option value="0" {{ old('is_free') == 0 ? 'selected' : '' }}>Paid</option>
+            </select>
+        </div>
+
+        <div class="mb-3" id="price-field" style="display: none;">
+            <label for="price" class="form-label">Price</label>
+            <input type="number" name="price" id="price" class="form-control" value="{{ old('price') }}" step="0.01" min="0">
+        </div>
+
+        <button type="submit" class="btn btn-success">Create Course</button>
+    </form>
+</div>
+
+<script>
+    document.getElementById('is_free').addEventListener('change', function () {
+        document.getElementById('price-field').style.display = this.value == 0 ? 'block' : 'none';
+    });
+</script>
+@endsection
+```
+
+---
+
+### **3. `resources/views/courses/show.blade.php`**
+Displays details of a specific course.
+
+```html
+@extends('layouts.app')
+
+@section('content')
+<div class="container">
+    <h1>{{ $course->title }}</h1>
+    <p><strong>Instructor:</strong> {{ $course->instructor->name }}</p>
+    <p><strong>Type:</strong> {{ $course->is_free ? 'Free' : 'Paid ($' . $course->price . ')' }}</p>
+    <p><strong>Description:</strong> {{ $course->description }}</p>
+
+    @if($course->thumbnail)
+        <img src="{{ asset('storage/' . $course->thumbnail) }}" alt="Thumbnail" class="img-fluid mt-3">
+    @endif
+
+    <a href="{{ route('courses.index') }}" class="btn btn-secondary mt-3">Back to Courses</a>
+</div>
+@endsection
+```
+
+---
+
+### **4. `resources/views/courses/edit.blade.php`**
+Form to edit an existing course.
+
+```html
+@extends('layouts.app')
+
+@section('content')
+<div class="container">
+    <h1>Edit Course</h1>
+
+    <form action="{{ route('courses.update', $course) }}" method="POST" enctype="multipart/form-data">
+        @csrf
+        @method('PUT')
+
+        <div class="mb-3">
+            <label for="title" class="form-label">Course Title</label>
+            <input type="text" name="title" id="title" class="form-control" value="{{ old('title', $course->title) }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea name="description" id="description" class="form-control">{{ old('description', $course->description) }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label for="thumbnail" class="form-label">Thumbnail</label>
+            <input type="file" name="thumbnail" id="thumbnail" class="form-control">
+            @if($course->thumbnail)
+                <img src="{{ asset('storage/' . $course->thumbnail) }}" alt="Thumbnail" class="img-fluid mt-3">
+            @endif
+        </div>
+
+        <div class="mb-3">
+            <label for="is_free" class="form-label">Course Type</label>
+            <select name="is_free" id="is_free" class="form-control" required>
+                <option value="1" {{ old('is_free', $course->is_free) == 1 ? 'selected' : '' }}>Free</option>
+                <option value="0" {{ old('is_free', $course->is_free) == 0 ? 'selected' : '' }}>Paid</option>
+            </select>
+        </div>
+
+        <div class="mb-3" id="price-field" style="{{ $course->is_free ? 'display: none;' : '' }}">
+            <label for="price" class="form-label">Price</label>
+            <input type="number" name="price" id="price" class="form-control" value="{{ old('price', $course->price) }}" step="0.01" min="0">
+        </div>
+
+        <button type="submit" class="btn btn-success">Update Course</button>
+    </form>
+</div>
+
+<script>
+    document.getElementById('is_free').addEventListener('change', function () {
+        document.getElementById('price-field').style.display = this.value == 0 ? 'block' : 'none';
+    });
+</script>
+@endsection
+```
+
+---
+
+These views should be sufficient to get you started with course management in your Laravel application. Let me know if you need more features or additional views!
