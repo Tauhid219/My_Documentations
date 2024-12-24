@@ -305,3 +305,348 @@ Then, update the count automatically when enrollments are added or removed:
 This optimization is useful if your application is expected to handle large-scale traffic.
 
 Let me know if you'd like a detailed example of implementing this optimization!
+
+
+
+
+
+
+
+
+
+
+Here are the models for your provided schema:
+
+---
+
+### **Course Model**
+
+```php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Course extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'title',
+        'description',
+        'thumbnail',
+        'created_by',
+        'is_free',
+        'price',
+    ];
+
+    // Relationships
+    public function lessons()
+    {
+        return $this->hasMany(Lesson::class);
+    }
+
+    public function enrollments()
+    {
+        return $this->hasMany(Enrollment::class);
+    }
+
+    public function students()
+    {
+        return $this->belongsToMany(User::class, 'enrollments');
+    }
+
+    public function instructor()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    // Helper Methods
+    public function studentCount()
+    {
+        return $this->enrollments()->count();
+    }
+}
+```
+
+---
+
+### **Lesson Model**
+
+```php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Lesson extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'course_id',
+        'title',
+        'content',
+        'video_url',
+        'order',
+    ];
+
+    // Relationships
+    public function course()
+    {
+        return $this->belongsTo(Course::class);
+    }
+
+    public function progress()
+    {
+        return $this->hasMany(Progress::class);
+    }
+}
+```
+
+---
+
+### **Enrollment Model**
+
+```php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Enrollment extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'user_id',
+        'course_id',
+        'is_completed',
+    ];
+
+    // Relationships
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function course()
+    {
+        return $this->belongsTo(Course::class);
+    }
+}
+```
+
+---
+
+### **Progress Model**
+
+```php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Progress extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'user_id',
+        'lesson_id',
+        'is_completed',
+    ];
+
+    // Relationships
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function lesson()
+    {
+        return $this->belongsTo(Lesson::class);
+    }
+}
+```
+
+---
+
+### Key Relationships
+
+1. **Course:**
+   - A course has many lessons.
+   - A course has many enrollments.
+   - A course belongs to the user who created it (`created_by`).
+2. **Lesson:**
+   - A lesson belongs to a course.
+   - A lesson has many progress records.
+3. **Enrollment:**
+   - An enrollment belongs to a user and a course.
+4. **Progress:**
+   - A progress record belongs to a user and a lesson.
+
+---
+
+### Example Use Cases
+
+1. **Get all lessons for a course:**
+   ```php
+   $course = Course::find(1);
+   $lessons = $course->lessons;
+   ```
+
+2. **Get enrolled students for a course:**
+   ```php
+   $students = $course->students;
+   ```
+
+3. **Count students enrolled in a course:**
+   ```php
+   $studentCount = $course->studentCount();
+   ```
+
+4. **Mark lesson progress as completed:**
+   ```php
+   $progress = Progress::firstOrCreate([
+       'user_id' => $userId,
+       'lesson_id' => $lessonId,
+   ]);
+   $progress->update(['is_completed' => true]);
+   ```
+
+5. **Check if a course is completed by a student:**
+   ```php
+   $isCompleted = Enrollment::where('user_id', $userId)
+                            ->where('course_id', $courseId)
+                            ->value('is_completed');
+   ```
+
+Let me know if you need additional features or methods for these models!
+
+
+
+
+
+
+
+
+
+
+Your current `users` table does not require any structural changes to accommodate the relationships between the `Enrollment`, `Progress`, and `User` models. The relationships can be established using the foreign keys (`user_id`) in the `enrollments` and `progress` tables, which reference the `id` column of the `users` table.
+
+However, you might want to consider adding helper methods in the `User` model to simplify these relationships and access enrolled courses or lesson progress. Here's how you can enhance the `User` model:
+
+---
+
+### **User Model Enhancements**
+
+```php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable;
+
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+    ];
+
+    // Relationships
+
+    // Courses the user has enrolled in
+    public function enrollments()
+    {
+        return $this->hasMany(Enrollment::class);
+    }
+
+    public function enrolledCourses()
+    {
+        return $this->belongsToMany(Course::class, 'enrollments');
+    }
+
+    // Progress of lessons
+    public function progress()
+    {
+        return $this->hasMany(Progress::class);
+    }
+
+    // Courses created by the user (if the user can create courses)
+    public function createdCourses()
+    {
+        return $this->hasMany(Course::class, 'created_by');
+    }
+
+    // Helper Methods
+
+    public function isEnrolledInCourse($courseId)
+    {
+        return $this->enrollments()->where('course_id', $courseId)->exists();
+    }
+
+    public function completedLessonsInCourse($courseId)
+    {
+        return $this->progress()
+            ->whereHas('lesson', function ($query) use ($courseId) {
+                $query->where('course_id', $courseId);
+            })
+            ->where('is_completed', true)
+            ->count();
+    }
+}
+```
+
+---
+
+### Explanation of Relationships
+
+1. **Enrollments:**
+   - A user can have many enrollments (`hasMany`).
+   - Use `enrolledCourses` to directly get the courses a user is enrolled in through the pivot table.
+
+2. **Progress:**
+   - A user can track progress for many lessons (`hasMany`).
+
+3. **Created Courses:**
+   - If your application allows instructors or admins to create courses, you can retrieve courses created by a user using `createdCourses`.
+
+4. **Helper Methods:**
+   - `isEnrolledInCourse`: Check if a user is enrolled in a specific course.
+   - `completedLessonsInCourse`: Get the count of lessons the user has completed in a course.
+
+---
+
+### Example Usage
+
+1. **Check if a user is enrolled in a course:**
+   ```php
+   $user = User::find(1);
+   $isEnrolled = $user->isEnrolledInCourse($courseId);
+   ```
+
+2. **Get all courses a user is enrolled in:**
+   ```php
+   $enrolledCourses = $user->enrolledCourses;
+   ```
+
+3. **Count lessons completed by a user in a specific course:**
+   ```php
+   $completedLessons = $user->completedLessonsInCourse($courseId);
+   ```
+
+These methods and relationships will allow you to efficiently query the necessary data without altering the `users` table structure. Let me know if you want further enhancements or modifications!
