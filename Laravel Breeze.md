@@ -55,7 +55,7 @@ Laravel Breeze also provides pre-built email verification functionality. To set 
      ```
 
 2. **Add `email_verified_at` Column**  
-   Ensure the `users` table includes an `email_verified_at` column. If missing, add it by running a migration:
+   Ensure the `users` table includes an `email_verified_at` column. If missing, add it by running a migration. And also check User model:
 
    ```bash
    php artisan make:migration add_email_verified_at_to_users_table --table=users
@@ -73,21 +73,7 @@ Laravel Breeze also provides pre-built email verification functionality. To set 
    php artisan migrate
    ```
 
-3. Check the `User` Model**
-
-#### **a. Implement the `MustVerifyEmail` Interface**
-Ensure the `User` model implements the `MustVerifyEmail` contract:
-
-```php
-use Illuminate\Contracts\Auth\MustVerifyEmail;
-
-class User extends Authenticatable implements MustVerifyEmail
-{
-    // Other model code...
-}
-```
-
-4. **Protect Routes with Middleware**  
+3. **Protect Routes with Middleware**  
    To restrict access to certain routes for unverified users, use the `verified` middleware. For example:
 
    ```php
@@ -100,7 +86,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
 ---
 
-### **5. Test the Setup**
+### **4. Test the Setup**
 
 #### **a. Register a New User**
 Register a new user through your application and verify their email via the verification link sent to their email address.
