@@ -44,6 +44,16 @@ Apply the migration using the following command:
 ```bash
 php artisan migrate
 ```
+or
+
+```bash
+php artisan migrate --path=database/migrations/table_name.php
+```
+
+Make sure to replace `table_name.php` with the actual filename of your migration.
+
+### Why Use `--path`?
+Using the `--path` option ensures that only the specified migration is executed without affecting other pending migrations.
 
 ### Notes
 - The `up` method adds the new columns to the table.
