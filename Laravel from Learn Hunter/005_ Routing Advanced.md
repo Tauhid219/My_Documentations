@@ -194,17 +194,43 @@ Name Prefix দিলে রাউটের নাম আরও সংগঠি�
 
 গ্রুপ করা রাউটগুলোতে একসাথে middleware প্রয়োগ করা যায়।
 উদাহরণ:
-Admin dashboard সম্পর্কিত সব রাউট `auth` middleware-এর অধীনে রাখা।
+Admin dashboard সম্পর্কিত সব রাউট `auth` middleware-এর অধীনে রাখা। 
+উদাহরণঃ 
+
+```php
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [AdminController::class, 'dashboard']);
+    Route::get('/settings', [AdminController::class, 'settings']);
+});
+```
+
 
 ### **Prefix Grouping**
 
 গ্রুপের সকল রাউটের আগে একই URL সেগমেন্ট যোগ হয়।
-এতে URL কাঠামো সুসংগঠিত হয়।
+এতে URL কাঠামো সুসংগঠিত হয়। 
+উদাহরণঃ 
+
+```php
+Route::prefix('learnhunter')->group(function () {
+    Route::get('/admin-dashboard', [AdminController::class, 'dashboard']);
+    Route::get('/admin-settings', [AdminController::class, 'settings']);
+});
+```
+
 
 ### **Name Prefixing**
 
 Route Name–এ prefix যোগ করলে নামগুলো লজিক্যাল গ্রুপ আকারে থাকে।
-উদাহরণ: `admin.dashboard`, `admin.settings`।
+উদাহরণ: `admin.dashboard`, `admin.settings`। 
+
+```php
+Route::name('admin.')->group(function () {
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
+});
+```
+
 
 ---
 
@@ -214,6 +240,16 @@ Route Name–এ prefix যোগ করলে নামগুলো লজি�
 * এগুলোকে `auth` middleware দিয়ে সুরক্ষিত করা যায়।
 * Prefix হিসেবে `learnhunter` দিলে সব রাউট সেই শুরুর পথ অনুসরণ করবে।
 * Name prefix `admin.` দিলে রাউটগুলো নাম দ্বারা সহজে পাওয়া যায়।
+
+```php
+use App\Http\Controllers\AdminController;
+use Illuminate\Support\Facades\Route;
+Route::middleware(['auth'])->prefix('learnhunter')->name('admin.')->group(function () {
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
+});
+```
+
 
 ---
 
@@ -232,7 +268,14 @@ Resource Route তৈরি করে—
 * `update`
 * `destroy`
 
-এগুলো ডিফল্টভাবে ব্যবহারের জন্য প্রস্তুত থাকে।
+এগুলো ডিফল্টভাবে ব্যবহারের জন্য প্রস্তুত থাকে। 
+
+```php
+use App\Http\Controllers\StudentController;
+use Illuminate\Support\Facades\Route;
+Route::resource('students', StudentController::class);
+```
+
 
 ---
 
